@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        handleReadPhoneStatePermission()
+//        handleReadPhoneStatePermission()
 //        registerMiniTrueCallerPhoneAccount(this@MainActivity)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -187,6 +187,16 @@ fun MainScreen(
         }
     }
 
+    val requestCallerIdRole = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (isDefaultCallerIdApp(context)) {
+            Toast.makeText(context, "Caller ID role granted!", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Caller ID role not granted.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     PermissionHandler(
         requiredPermissions = listOf(
             Manifest.permission.READ_CALL_LOG,
@@ -276,6 +286,22 @@ fun MainScreen(
             Text(if (isDefaultDialer(context)) "Already default dialer" else "Make default dialer")
         }
 
+
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Default Caller ID
+        Button(onClick = {
+            val intent = requestCallerIdRole(context)
+            if (intent != null) {
+                requestCallerIdRole.launch(intent)
+            } else {
+                Toast.makeText(context, "Caller ID role not available", Toast.LENGTH_SHORT).show()
+            }
+        }) {
+            Text(if (isDefaultCallerIdApp(context)) "Already default Caller ID app" else "Make default Caller ID app")
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // BATTERY OPTIMIZATION
@@ -329,6 +355,27 @@ fun MainScreen(
         }
     }
 }
+
+
+fun isDefaultCallerIdApp(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+        return false
+    val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+    return roleManager?.isRoleHeld(RoleManager.ROLE_CALL_SCREENING) == true
+}
+
+fun requestCallerIdRole(context: Context): Intent? {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+        if (roleManager?.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) == true) {
+            roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
+        } else null
+    } else null
+}
+
+
+
+
 
 
 fun isDefaultDialer(context: Context): Boolean {

@@ -10,9 +10,26 @@ import com.abizer_r.minitruecaller.ui.overlay.CallOverlayService
 import com.abizer_r.minitruecaller.utils.Constants
 
 class MyCallScreeningService : CallScreeningService() {
+
+    override fun onCreate() {
+        super.onCreate()
+        Log.d("MyCallScreeningService", "onCreate called")
+    }
+
     override fun onScreenCall(details: Call.Details) {
-        val number = details.handle.schemeSpecificPart
+        val number = details.handle?.schemeSpecificPart
         Log.d("MyCallScreeningService", "onScreenCall called - number = $number")
+
+        // Optionally respond to allow/block call
+        val response = CallResponse.Builder()
+            .setDisallowCall(false) // true = block
+            .setRejectCall(false)   // true = reject
+            .setSkipCallLog(false)
+            .setSkipNotification(false)
+            .build()
+
+        respondToCall(details, response)
+
         val intent = Intent(this, CallOverlayService::class.java).apply {
             putExtra(Constants.INCOMING_CALL_EXTRA, number)
         }
@@ -21,13 +38,10 @@ class MyCallScreeningService : CallScreeningService() {
         } else {
             startService(intent)
         }
-
-        // Must respond, even if you do nothing
-        respondToCall(details, CallResponse.Builder().build())
     }
 
-//    override fun onBind(intent: Intent?): IBinder? {
-//        Log.d("MyCallScreeningService", "onBind called")
-//        return super.onBind(intent)
-//    }
+    override fun onBind(intent: Intent?): IBinder? {
+        Log.d("MyCallScreeningService", "onBind called")
+        return super.onBind(intent)
+    }
 }
