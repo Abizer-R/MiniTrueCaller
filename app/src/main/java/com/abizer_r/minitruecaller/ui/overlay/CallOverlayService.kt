@@ -17,6 +17,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
+import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.compose.ui.platform.ComposeView
@@ -87,7 +88,7 @@ class CallOverlayService: Service() {
         overlayView = inflater.inflate(R.layout.overlay_caller_info, null)
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -102,10 +103,14 @@ class CallOverlayService: Service() {
         params.gravity = Gravity.CENTER
         params.y = 100
 
-        overlayView!!.setOnClickListener {
-            Log.d("Overlay", "Overlay clicked, dismissing")
-            removeOverlay()
-            stopSelf()
+        val rootLayout = overlayView!!.findViewById<View>(R.id.overlay_root)
+
+        val dismissBtn = overlayView!!.findViewById<Button>(R.id.btnDismiss)
+        dismissBtn.setOnClickListener {
+            rootLayout.animate().alpha(0f).setDuration(200).withEndAction {
+                overlayView?.isVisible = false
+                removeOverlay()
+            }.start()
         }
 
         Log.d("Overlay", "Adding view to window manager")
