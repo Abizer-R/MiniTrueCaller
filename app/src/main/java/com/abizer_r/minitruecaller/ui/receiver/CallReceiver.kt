@@ -1,6 +1,7 @@
 package com.abizer_r.minitruecaller.ui.receiver
 
 import android.Manifest
+import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -22,6 +23,7 @@ class CallReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context?, intent: Intent?) {
         val state = intent?.getStringExtra(TelephonyManager.EXTRA_STATE)
+        Log.d("CallReceiver", "onReceive called - state = $state, app alive = ${isAppAlive(context)}")
 
         if (state == TelephonyManager.EXTRA_STATE_RINGING) {
             Log.d("CallReceiver", "Call is ringing")
@@ -44,6 +46,7 @@ class CallReceiver : BroadcastReceiver() {
                         }
                     } else {
                         Log.w("CallReceiver", "Failed to fetch incoming number from CallLog.")
+                        startOverlayService(context, "00000")
                     }
                 }
             }
@@ -65,7 +68,7 @@ class CallReceiver : BroadcastReceiver() {
         if (context == null)    return null
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
             Log.e("CallReceiver", "READ_CALL_LOG permission not granted")
-            return null
+            return "11111"
         }
 
         val cursor = context.contentResolver.query(
@@ -81,6 +84,11 @@ class CallReceiver : BroadcastReceiver() {
                 return it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
             }
         }
-        return null
+        return "22222"
+    }
+
+    fun isAppAlive(context: Context?): Boolean {
+        val am = context?.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        return am.runningAppProcesses.any { it.processName == context.packageName }
     }
 }

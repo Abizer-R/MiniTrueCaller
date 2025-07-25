@@ -1,8 +1,12 @@
 package com.abizer_r.minitruecaller
 
 import android.Manifest
+import android.app.Activity
+import android.app.AlertDialog
+    import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -10,8 +14,11 @@ import android.telecom.TelecomManager
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat.getSystemService
 import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
@@ -50,7 +58,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             MiniTrueCallerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    MainScreen(Modifier.padding(innerPadding))
+                    MainScreen(
+                        modifier = Modifier.padding(innerPadding),
+                    )
                 }
             }
         }
@@ -58,7 +68,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        dummyIncomingCall()
+//        dummyIncomingCall()
     }
 
     private fun dummyIncomingCall() {
@@ -74,11 +84,24 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    // In your MainActivity.kt
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val number = intent.data?.schemeSpecificPart
+        Log.d("DialIntent", "User tried to call: $number")
+        val fallbackIntent = Intent(Intent.ACTION_CALL).apply {
+            data = "tel:$number".toUri()
+        }
+        startActivity(fallbackIntent)
+
+    }
+
 }
 
 @Composable
 fun MainScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
 
     val context = LocalContext.current
@@ -87,6 +110,26 @@ fun MainScreen(
     }
     var launchPermissionRequest: () -> Unit by remember {
         mutableStateOf({})
+    }
+
+    val requestCallerIdRole = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (isDefaultCallerIdApp(context)) {
+            Toast.makeText(context, "Caller ID role granted!", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Caller ID role not granted.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        // After user chooses, check if we're default dialer now
+        if (isDefaultDialer(context)) {
+            Toast.makeText(context, "✅ App is now the default dialer!", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "❌ Not made default dialer", Toast.LENGTH_SHORT).show()
+        }
     }
 
     PermissionHandler(
@@ -145,25 +188,130 @@ fun MainScreen(
             )
         }
 
+
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Default dialer
         Button(onClick = {
-            val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-            val currentDefault = telecomManager.defaultDialerPackage
-            Log.d("DialerCheck", "Default dialer: $currentDefault")
-            if (context.packageName != currentDefault) {
-                val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
-                    putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
+//            val intent = requestCallerIdRole(context)
+//            if (intent != null) {
+//                requestCallerIdRole.launch(intent)
+//            } else {
+//                Toast.makeText(context, "Caller ID role not available", Toast.LENGTH_SHORT).show()
+//            }
+
+
+
+            if (!isDefaultDialer(context)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
+                    if (roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)) {
+                        if (!roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
+                            val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
+                            launcher.launch(intent)
+                        } else {
+                            Toast.makeText(context, "Already Default dialer", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Dialer role not available on this device", Toast.LENGTH_SHORT).show()
+                    }
+
+                } else {
+                    val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
+                        putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
+                    }
+                    launcher.launch(intent)
                 }
-                context.startActivity(intent)
             } else {
-                Toast.makeText(context, "Already default dialer or unsupported", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "You're already the default dialer", Toast.LENGTH_SHORT).show()
             }
         }) {
-            Text(stringResource(R.string.make_app_default_dialer))
+            Text(if (isDefaultDialer(context)) "Already default dialer" else "Make default dialer")
+        }
+
+
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Default Caller ID
+        Button(onClick = {
+            val intent = requestCallerIdRole(context)
+            if (intent != null) {
+                requestCallerIdRole.launch(intent)
+            } else {
+                Toast.makeText(context, "Caller ID role not available", Toast.LENGTH_SHORT).show()
+            }
+        }) {
+            Text(if (isDefaultCallerIdApp(context)) "Already default Caller ID app" else "Make default Caller ID app")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // BATTERY OPTIMIZATION
+        Button(onClick = {
+            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            context.startActivity(intent)
+        }) {
+            Text("Allow battery unrestricted access")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 🔐 AUTO-START INSTRUCTIONS (for MIUI/Vivo etc.)
+        Button(onClick = {
+            showAutoStartInstructions(context)
+        }) {
+            Text("Instructions for battery restrictions")
         }
     }
 }
+
+
+fun isDefaultCallerIdApp(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+        return false
+    val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+    return roleManager?.isRoleHeld(RoleManager.ROLE_CALL_SCREENING) == true
+}
+
+fun requestCallerIdRole(context: Context): Intent? {
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+        if (roleManager?.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) == true) {
+            roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
+        } else null
+    } else null
+}
+
+
+
+
+
+
+
+
+
+
+
+fun isDefaultDialer(context: Context): Boolean {
+    val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+    return telecomManager.defaultDialerPackage == context.packageName
+}
+
+fun showAutoStartInstructions(context: Context) {
+    AlertDialog.Builder(context)
+        .setTitle("Enable Auto-start")
+        .setMessage(
+            "For apps like this to work reliably on Xiaomi, Vivo, Oppo, or Realme phones, please:\n\n" +
+                    "1. Go to Settings > Apps > Your App\n" +
+                    "2. Enable 'Auto-start' or 'Run in background'\n" +
+                    "3. Disable battery optimization for this app\n\n" +
+                    "This helps the app show caller info even when killed."
+        )
+        .setPositiveButton("Got it") { dialog, _ -> dialog.dismiss() }
+        .show()
+}
+
 
 
 @Preview
