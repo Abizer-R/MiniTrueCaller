@@ -1,6 +1,10 @@
 package com.abizer_r.minitruecaller.ui.overlay
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
@@ -16,6 +20,7 @@ import android.view.WindowManager
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.compose.ui.platform.ComposeView
+import androidx.core.app.NotificationCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abizer_r.minitruecaller.R
@@ -25,6 +30,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 class CallOverlayService: Service() {
@@ -38,6 +44,7 @@ class CallOverlayService: Service() {
         val number = intent?.getStringExtra(Constants.INCOMING_CALL_EXTRA)
             ?: return START_NOT_STICKY
         Log.i("CallOverlayService", "onStartCommand: number = $number")
+        startForeground(1, createNotification())
         showOverlay()
         fetchCallerInfo(number)
         return START_STICKY
@@ -53,7 +60,9 @@ class CallOverlayService: Service() {
         }
 
         CoroutineScope(Dispatchers.Main).launch {
-            callerInfoFlow.collect { callerInfo ->
+            callerInfoFlow
+                .filter { it != null }
+                .collect { callerInfo ->
 
                 overlayView?.apply {
                     val nameTextView = findViewById<TextView>(R.id.tvName)
@@ -77,10 +86,6 @@ class CallOverlayService: Service() {
         val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
         overlayView = inflater.inflate(R.layout.overlay_caller_info, null)
 
-
-
-
-
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -89,20 +94,49 @@ class CallOverlayService: Service() {
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+            ,
             PixelFormat.TRANSLUCENT
         )
-        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        params.gravity = Gravity.CENTER
         params.y = 100
 
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        Log.d("Overlay", "Adding view to window manager")
         windowManager.addView(overlayView, params)
+
+        // fade in animation
+        overlayView?.alpha = 0f
+        overlayView?.animate()?.alpha(1f)?.setDuration(300)?.start()
+
 
         Handler(Looper.getMainLooper()).postDelayed({
             stopSelf()
         }, 5000)
 
     }
+
+    private fun createNotification(): Notification {
+        val channelId = "caller_overlay_channel"
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                "Caller Overlay",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(channel)
+        }
+
+        return NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Incoming Call")
+            .setContentText("Showing caller info...")
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // use a valid icon
+            .build()
+    }
+
 
     override fun onDestroy() {
         overlayView?.let {

@@ -35,7 +35,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import androidx.core.net.toUri
+import com.abizer_r.minitruecaller.ui.overlay.CallOverlayService
 import com.abizer_r.minitruecaller.utils.CallPermissionsState
+import com.abizer_r.minitruecaller.utils.Constants
 import com.abizer_r.minitruecaller.utils.PermissionHandler
 
 class MainActivity : ComponentActivity() {
@@ -48,6 +50,18 @@ class MainActivity : ComponentActivity() {
                     MainScreen(Modifier.padding(innerPadding))
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+
+        val intent = Intent(this, CallOverlayService::class.java)
+        intent.putExtra(Constants.INCOMING_CALL_EXTRA, "9999999999")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
         }
     }
 }
