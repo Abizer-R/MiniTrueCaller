@@ -4,12 +4,16 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
     import android.app.role.RoleManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.telecom.PhoneAccount
+import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.util.Log
 import android.widget.Toast
@@ -19,6 +23,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -40,10 +45,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat.getSystemService
 import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
+import com.abizer_r.minitruecaller.ui.DialerActivity
+import com.abizer_r.minitruecaller.ui.MyConnectionService
 import com.abizer_r.minitruecaller.ui.overlay.CallOverlayService
 import com.abizer_r.minitruecaller.utils.CallPermissionsState
 import com.abizer_r.minitruecaller.utils.Constants
@@ -55,6 +63,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        registerMiniTrueCallerPhoneAccount(this@MainActivity)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            Log.d("DialerRole", "Dialer Role Available: ${roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)}")
+            Log.d("DialerRole", "Dialer Role Held: ${roleManager.isRoleHeld(RoleManager.ROLE_DIALER)}")
+        }
+
         setContent {
             MiniTrueCallerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -96,6 +113,27 @@ class MainActivity : ComponentActivity() {
         startActivity(fallbackIntent)
 
     }
+
+    fun registerMiniTrueCallerPhoneAccount(context: Context) {
+        val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+
+        val componentName = ComponentName(context, MyConnectionService::class.java)
+        val phoneAccountHandle = PhoneAccountHandle(componentName, "mini_truecaller_id")
+
+        val phoneAccount = PhoneAccount.builder(phoneAccountHandle, "Mini TrueCaller")
+            .setCapabilities(
+                PhoneAccount.CAPABILITY_CALL_PROVIDER or
+                        PhoneAccount.CAPABILITY_CONNECTION_MANAGER
+            )
+            .setHighlightColor(context.getColor(R.color.purple_500)) // Optional
+            .build()
+
+        telecomManager.registerPhoneAccount(phoneAccount)
+//        telecomManager.addNewIncomingCall(phoneAccountHandle, Bundle())
+
+        Log.d("PhoneAccount", "Registered with: ${phoneAccountHandle.componentName.className}")
+    }
+
 
 }
 
@@ -255,13 +293,46 @@ fun MainScreen(
             Text("Allow battery unrestricted access")
         }
 
+//        Spacer(modifier = Modifier.height(16.dp))
+//
+//        // 🔐 AUTO-START INSTRUCTIONS (for MIUI/Vivo etc.)
+//        Button(onClick = {
+//            showAutoStartInstructions(context)
+//        }) {
+//            Text("Instructions for battery restrictions")
+//        }
+
+
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 🔐 AUTO-START INSTRUCTIONS (for MIUI/Vivo etc.)
         Button(onClick = {
-            showAutoStartInstructions(context)
+            context.startActivity(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS))
         }) {
-            Text("Instructions for battery restrictions")
+            Text("Change Phone account")
+        }
+
+
+        Button(onClick = {
+            val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+
+            val componentName = ComponentName(context, MyConnectionService::class.java)
+            val phoneAccountHandle = PhoneAccountHandle(componentName, "mini_truecaller_id")
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.CALL_PHONE
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                telecomManager.placeCall(
+                    Uri.parse("tel:1234567890"),
+                    Bundle().apply {
+                        putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle)
+                    }
+                )
+            } else {
+                Toast.makeText(context, "call_phone permission not granted", Toast.LENGTH_SHORT).show()
+            }
+        }) {
+            Text("Place call")
         }
     }
 }
