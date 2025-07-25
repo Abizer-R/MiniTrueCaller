@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">MiniTrueCaller</string>
+    <string name="overlay_permission_granted">Overlay permission granted</string>
+    <string name="grant_overlay_permission">Grant Overlay Permission</string>
+    <string name="make_app_default_dialer">Make App Default Dialer</string>
+    <string name="phone_permissions_granted">Phone Permissions Granted</string>
+    <string name="grant_phone_permissions">Grant Phone Permissions</string>
 </resources>
