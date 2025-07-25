@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,6 +51,7 @@ import com.abizer_r.minitruecaller.data.repository.ResultData
 import com.abizer_r.minitruecaller.domain.model.CallerInfo
 import com.abizer_r.minitruecaller.domain.usecase.SaveCallerInfoUseCase
 import com.abizer_r.minitruecaller.ui.addCaller.AddCallerBottomSheet
+import com.abizer_r.minitruecaller.ui.addCaller.AddCallerSheetLauncher
 import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import com.abizer_r.minitruecaller.utils.CallPermissionsState
 import com.abizer_r.minitruecaller.utils.PermissionHandler
@@ -119,32 +121,31 @@ fun MainScreen(
         onRequestCallerIdRole = callerIdRoleLauncher
     )
 
-    if (showBottomSheet) {
-        AddCallerBottomSheet(
-            onDismiss = { showBottomSheet = false },
-            onSubmit = { number, name ->
-                // Replace this with ViewModel use case call
-                val callerInfo = CallerInfo(number, name)
-                CoroutineScope(Dispatchers.IO).launch {
-                    val result =
-                        SaveCallerInfoUseCase(CallerRepositoryImpl(context)).invoke(callerInfo)
+    AddCallerSheetLauncher(
+        showSheet = showBottomSheet,
+        onDismiss = { showBottomSheet = false },
+        onSubmit = { number, name ->
+            // Replace this with ViewModel use case call
+            val callerInfo = CallerInfo(number, name)
+            CoroutineScope(Dispatchers.IO).launch {
+                val result =
+                    SaveCallerInfoUseCase(CallerRepositoryImpl(context)).invoke(callerInfo)
 
-                    when (result) {
-                        is ResultData.Failed -> Toast.makeText(
-                            context, result.errorMessage(),
-                            Toast.LENGTH_SHORT
-                        ).show()
+                when (result) {
+                    is ResultData.Failed -> Toast.makeText(
+                        context, result.errorMessage(),
+                        Toast.LENGTH_SHORT
+                    ).show()
 
-                        is ResultData.Loading -> {}
-                        is ResultData.Success -> Toast.makeText(
-                            context, "Updated Successfully",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
+                    is ResultData.Loading -> {}
+                    is ResultData.Success -> Toast.makeText(
+                        context, "Updated Successfully",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
-        )
-    }
+        }
+    )
 
 }
 
@@ -183,10 +184,18 @@ fun PermissionsPanel(
             context = context,
             onRequestCallerIdRole = onRequestCallerIdRole
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(24.dp))
 
         Button(onClick = onShowBottomSheet) {
-            Text("Add Caller to Firebase")
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                )
+                Text("Add Caller to Firebase")
+            }
         }
     }
 }
