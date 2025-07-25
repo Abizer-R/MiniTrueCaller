@@ -26,6 +26,11 @@ class CallReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            Log.d("CallReceiver", "Android Q+ — skipping legacy BroadcastReceiver")
+            return
+        }
+
         val state = intent?.getStringExtra(TelephonyManager.EXTRA_STATE)
         Log.d("CallReceiver", "onReceive called - state = $state, app alive = ${isAppAlive(context)}")
 
@@ -85,7 +90,7 @@ class CallReceiver : BroadcastReceiver() {
         if (context == null)    return null
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
             Log.e("CallReceiver", "READ_CALL_LOG permission not granted")
-            return "11111"
+            return null
         }
 
         val cursor = context.contentResolver.query(
@@ -101,7 +106,7 @@ class CallReceiver : BroadcastReceiver() {
                 return it.getString(it.getColumnIndexOrThrow(CallLog.Calls.NUMBER))
             }
         }
-        return "22222"
+        return null
     }
 
     fun isAppAlive(context: Context?): Boolean {

@@ -1,38 +1,34 @@
 package com.abizer_r.minitruecaller
 
 import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Activity
-import android.app.AlertDialog
-    import android.app.role.RoleManager
-import android.content.ComponentName
+import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.telecom.PhoneAccount
-import android.telecom.PhoneAccountHandle
-import android.telecom.TelecomManager
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
-import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,38 +39,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat.getSystemService
-import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import androidx.core.net.toUri
-import androidx.lifecycle.lifecycleScope
-import com.abizer_r.minitruecaller.ui.DialerActivity
-import com.abizer_r.minitruecaller.ui.MyConnectionService
-import com.abizer_r.minitruecaller.ui.overlay.CallOverlayService
+import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import com.abizer_r.minitruecaller.utils.CallPermissionsState
-import com.abizer_r.minitruecaller.utils.Constants
 import com.abizer_r.minitruecaller.utils.PermissionHandler
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
-//        handleReadPhoneStatePermission()
-//        registerMiniTrueCallerPhoneAccount(this@MainActivity)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val roleManager = getSystemService(RoleManager::class.java)
-            Log.d("DialerRole", "Dialer Role Available: ${roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)}")
-            Log.d("DialerRole", "Dialer Role Held: ${roleManager.isRoleHeld(RoleManager.ROLE_DIALER)}")
-        }
-
         setContent {
             MiniTrueCallerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -85,84 +63,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-    override fun onResume() {
-        super.onResume()
-//        dummyIncomingCall()
-    }
-
-    private fun dummyIncomingCall() {
-        lifecycleScope.launch {
-            delay(3000)
-
-            val intent = Intent(this@MainActivity, CallOverlayService::class.java)
-            intent.putExtra(Constants.INCOMING_CALL_EXTRA, "9999999999")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent)
-            } else {
-                startService(intent)
-            }
-        }
-    }
-
-    // In your MainActivity.kt
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        val number = intent.data?.schemeSpecificPart
-        Log.d("DialIntent", "User tried to call: $number")
-        val fallbackIntent = Intent(Intent.ACTION_CALL).apply {
-            data = "tel:$number".toUri()
-        }
-        startActivity(fallbackIntent)
-
-    }
-
-
-    private lateinit var readPhoneStateLauncher: ActivityResultLauncher<String>
-
-
-    private fun handleReadPhoneStatePermission() {
-        readPhoneStateLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            if (isGranted) {
-                Log.d("Permission", "READ_PHONE_STATE granted")
-                registerMiniTrueCallerPhoneAccount(this@MainActivity)
-            } else {
-                Toast.makeText(this, "Permission denied 😢", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        readPhoneStateLauncher.launch(Manifest.permission.READ_PHONE_STATE)
-    }
-
-    @SuppressLint("MissingPermission")
-    fun registerMiniTrueCallerPhoneAccount(context: Context) {
-        val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-
-        val componentName = ComponentName(context, MyConnectionService::class.java)
-        val phoneAccountHandle = PhoneAccountHandle(componentName, "Mini TrueCaller")
-
-        val phoneAccount = PhoneAccount.builder(phoneAccountHandle, "Mini TrueCaller")
-            .setCapabilities(
-                PhoneAccount.CAPABILITY_CALL_PROVIDER
-//                        or PhoneAccount.CAPABILITY_CONNECTION_MANAGER
-            )
-            .setHighlightColor(context.getColor(R.color.purple_500)) // Optional
-            .build()
-
-        telecomManager.registerPhoneAccount(phoneAccount)
-//        telecomManager.addNewIncomingCall(phoneAccountHandle, Bundle())
-
-        if (!telecomManager.callCapablePhoneAccounts.contains(phoneAccountHandle)) {
-            context.startActivity(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS))
-            Toast.makeText(context, "Enable MiniDialer in call settings", Toast.LENGTH_LONG).show()
-        }
-
-        Log.d("PhoneAccount", "Registered with: ${phoneAccountHandle.componentName.className}")
-    }
-
-
 }
 
 @Composable
@@ -171,26 +71,17 @@ fun MainScreen(
 ) {
 
     val context = LocalContext.current
-    var permissionState by remember {
+    var callPermissionsState by remember {
         mutableStateOf(CallPermissionsState())
     }
-    var launchPermissionRequest: () -> Unit by remember {
+    var launchRuntimePermissionsRequest: () -> Unit by remember {
         mutableStateOf({})
     }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        // After user chooses, check if we're default dialer now
-        if (isDefaultDialer(context)) {
-            Toast.makeText(context, "✅ App is now the default dialer!", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(context, "❌ Not made default dialer", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    val requestCallerIdRole = rememberLauncherForActivityResult(
+    val callerIdRoleLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (isDefaultCallerIdApp(context)) {
+        if (isCallerIdRoleHeld(context)) {
             Toast.makeText(context, "Caller ID role granted!", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(context, "Caller ID role not granted.", Toast.LENGTH_SHORT).show()
@@ -201,170 +92,171 @@ fun MainScreen(
         requiredPermissions = listOf(
             Manifest.permission.READ_CALL_LOG,
             Manifest.permission.READ_PHONE_STATE,
-            Manifest.permission.CALL_PHONE,
         )
     ) { state, launcher ->
-        permissionState = state
-        launchPermissionRequest = launcher
+        callPermissionsState = state
+        launchRuntimePermissionsRequest = launcher
     }
 
-//    var callPermissionsState by remember { mutableStateOf(CallPermissionsState(false, false)) }
-//    var onRequestPermissions: () -> Unit by remember { mutableStateOf({}) }
+    PermissionsPanel(
+        modifier = Modifier.fillMaxSize(),
+        permissionState = callPermissionsState,
+        context = context,
+        onRequestRuntimePermissions = launchRuntimePermissionsRequest,
+        onRequestCallerIdRole = callerIdRoleLauncher
+    )
 
+}
+
+@Composable
+fun PermissionsPanel(
+    modifier: Modifier,
+    permissionState: CallPermissionsState,
+    context: Context,
+    onRequestRuntimePermissions: () -> Unit,
+    onRequestCallerIdRole: ManagedActivityResultLauncher<Intent, ActivityResult>
+) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-
         Text(
             text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineLarge
         )
         Spacer(modifier = Modifier.height(32.dp))
+        OverlayPermissionSection(permissionState.overlayGranted, context)
+        Spacer(Modifier.height(16.dp))
 
-        Button(onClick = {
-            if (permissionState.overlayGranted) {
-                Toast.makeText(context, R.string.overlay_permission_granted, Toast.LENGTH_SHORT).show()
-            } else {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    "package:${context.packageName}".toUri()
-                )
-                context.startActivity(intent)
-            }
-        }) {
-            val stringRes = if (permissionState.overlayGranted) {
-                R.string.overlay_permission_granted
-            } else R.string.grant_overlay_permission
-            Text(stringResource(stringRes))
-        }
+        CallPermissionsSection(
+            runtimePermissionsGranted = permissionState.grantedPermissions.all { it.value },
+            onClick = onRequestRuntimePermissions
+        )
+        Spacer(Modifier.height(16.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
+        CallerIdRoleSection(
+            isCallerIdRoleHeld = isCallerIdRoleHeld(context),
+            context = context,
+            onRequestCallerIdRole = onRequestCallerIdRole
+        )
+    }
+}
 
-        // Request runtime permissions
-        Button(onClick = launchPermissionRequest) {
-            Text(
-                if (permissionState.grantedPermissions.all { it.value })
-                    stringResource(R.string.phone_permissions_granted)
-                else
-                    stringResource(R.string.grant_phone_permissions)
+@Composable
+private fun CallerIdRoleSection(
+    isCallerIdRoleHeld: Boolean,
+    context: Context,
+    onRequestCallerIdRole: ManagedActivityResultLauncher<Intent, ActivityResult>,
+) {
+    if (isCallerIdRoleHeld) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Done,
+                contentDescription = null,
+                tint = Color.Green
             )
+            Text("Already default Caller ID app")
         }
-
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Default dialer
-        Button(onClick = {
-            if (!isDefaultDialer(context)) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
-                    if (roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)) {
-                        if (!roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
-                            val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
-                            launcher.launch(intent)
-                        } else {
-                            Toast.makeText(context, "Already Default dialer", Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        Toast.makeText(context, "Dialer role not available on this device", Toast.LENGTH_SHORT).show()
-                    }
-
-                } else {
-                    val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
-                        putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
-                    }
-                    launcher.launch(intent)
-                }
-            } else {
-                Toast.makeText(context, "You're already the default dialer", Toast.LENGTH_SHORT).show()
-            }
-        }) {
-            Text(if (isDefaultDialer(context)) "Already default dialer" else "Make default dialer")
-        }
-
-
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Default Caller ID
-        Button(onClick = {
-            val intent = requestCallerIdRole(context)
+        return
+    }
+    Button(
+        onClick = {
+            val intent = buildCallerIdRoleIntent(context)
             if (intent != null) {
-                requestCallerIdRole.launch(intent)
+                onRequestCallerIdRole.launch(intent)
             } else {
-                Toast.makeText(context, "Caller ID role not available", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Caller ID role not available", Toast.LENGTH_SHORT)
+                    .show()
             }
-        }) {
-            Text(if (isDefaultCallerIdApp(context)) "Already default Caller ID app" else "Make default Caller ID app")
+        },
+        colors = ButtonDefaults.buttonColors().copy(
+            containerColor = Color.Red
+        )
+    ) {
+        Text("Make default Caller ID app")
+    }
+}
+
+@Composable
+private fun OverlayPermissionSection(
+    overlayGranted: Boolean,
+    context: Context
+) {
+    if (overlayGranted) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Done,
+                contentDescription = null,
+                tint = Color.Green
+            )
+            Text(stringResource(R.string.overlay_permission_granted))
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // BATTERY OPTIMIZATION
-        Button(onClick = {
-            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        return
+    }
+    Button(
+        onClick = {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                "package:${context.packageName}".toUri()
+            )
             context.startActivity(intent)
-        }) {
-            Text("Allow battery unrestricted access")
+        },
+        colors = ButtonDefaults.buttonColors().copy(
+            containerColor = Color.Red
+        )
+    ) {
+        Text(stringResource(R.string.grant_overlay_permission))
+    }
+}
+
+@Composable
+private fun CallPermissionsSection(
+    runtimePermissionsGranted: Boolean,
+    onClick: () -> Unit
+) {
+    if (runtimePermissionsGranted) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Done,
+                contentDescription = null,
+                tint = Color.Green
+            )
+            Spacer(Modifier.size(16.dp))
+            Text(stringResource(R.string.phone_permissions_granted))
         }
-
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(onClick = {
-            context.startActivity(Intent(context, DialerActivity::class.java))
-        }) {
-            Text("DIal pad ui")
-        }
-
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-//        Button(onClick = {
-//            context.startActivity(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS))
-//        }) {
-//            Text("Change Phone account")
-//        }
-
-
-        Button(onClick = {
-            val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-
-            val componentName = ComponentName(context, MyConnectionService::class.java)
-            val phoneAccountHandle = PhoneAccountHandle(componentName, "Mini TrueCaller")
-            if (ActivityCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.CALL_PHONE
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                telecomManager.placeCall(
-                    Uri.parse("tel:1234567890"),
-                    Bundle().apply {
-                        putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, phoneAccountHandle)
-                    }
-                )
-            } else {
-                Toast.makeText(context, "call_phone permission not granted", Toast.LENGTH_SHORT).show()
-            }
-        }) {
-            Text("Place call")
-        }
+        return
+    }
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors().copy(
+            containerColor = Color.Red
+        )
+    ) {
+        Text(stringResource(R.string.grant_phone_permissions))
     }
 }
 
 
-fun isDefaultCallerIdApp(context: Context): Boolean {
+fun isCallerIdRoleHeld(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
         return false
     val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
     return roleManager?.isRoleHeld(RoleManager.ROLE_CALL_SCREENING) == true
 }
 
-fun requestCallerIdRole(context: Context): Intent? {
+fun buildCallerIdRoleIntent(context: Context): Intent? {
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
         if (roleManager?.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) == true) {
@@ -372,18 +264,6 @@ fun requestCallerIdRole(context: Context): Intent? {
         } else null
     } else null
 }
-
-
-
-
-
-
-fun isDefaultDialer(context: Context): Boolean {
-    val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-    return telecomManager.defaultDialerPackage == context.packageName
-}
-
-
 
 @Preview
 @Composable
