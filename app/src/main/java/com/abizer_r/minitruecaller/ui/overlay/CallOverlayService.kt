@@ -25,6 +25,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abizer_r.minitruecaller.R
+import com.abizer_r.minitruecaller.data.DummyNumbersMapRepo
 import com.abizer_r.minitruecaller.domain.model.CallerInfo
 import com.abizer_r.minitruecaller.utils.Constants
 import kotlinx.coroutines.CoroutineScope
@@ -53,10 +54,10 @@ class CallOverlayService: Service() {
 
     private fun fetchCallerInfo(number: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            delay(2000)
+            val name = DummyNumbersMapRepo.fetchNameForNumber(number)
             callerInfoFlow.value = CallerInfo(
                 number = number,
-                name = "Dummy Name"
+                name = name ?: "unknown"
             )
         }
 
@@ -110,6 +111,8 @@ class CallOverlayService: Service() {
             rootLayout.animate().alpha(0f).setDuration(200).withEndAction {
                 overlayView?.isVisible = false
                 removeOverlay()
+                stopForeground(true)
+                stopSelf()
             }.start()
         }
 
