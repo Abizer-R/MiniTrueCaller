@@ -20,13 +20,17 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.compose.ui.platform.ComposeView
 import androidx.core.app.NotificationCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.abizer_r.minitruecaller.R
 import com.abizer_r.minitruecaller.data.DummyNumbersMapRepo
+import com.abizer_r.minitruecaller.data.repository.CallerRepositoryImpl
+import com.abizer_r.minitruecaller.data.repository.ResultData
 import com.abizer_r.minitruecaller.domain.model.CallerInfo
+import com.abizer_r.minitruecaller.domain.usecase.GetCallerInfoUseCase
 import com.abizer_r.minitruecaller.utils.Constants
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +38,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class CallOverlayService: Service() {
 
@@ -54,11 +59,30 @@ class CallOverlayService: Service() {
 
     private fun fetchCallerInfo(number: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            val name = DummyNumbersMapRepo.fetchNameForNumber(number)
-            callerInfoFlow.value = CallerInfo(
-                number = number,
-                name = name ?: "unknown"
-            )
+            val useCase = GetCallerInfoUseCase(CallerRepositoryImpl(this@CallOverlayService))
+            val result = useCase(number)
+
+            withContext(Dispatchers.Main) {
+
+
+                when (result) {
+                    is ResultData.Failed -> {
+                        updateOverlay(CallerInfo(number, "Unknown"))
+                    }
+                    is ResultData.Loading -> {}
+                    is ResultData.Success -> {
+                        updateOverlay(result.data)
+                    }
+                }
+
+            }
+
+
+//            val name = DummyNumbersMapRepo.fetchNameForNumber(number)
+//            callerInfoFlow.value = CallerInfo(
+//                number = number,
+//                name = name ?: "unknown"
+//            )
         }
 
         CoroutineScope(Dispatchers.Main).launch {
@@ -66,20 +90,23 @@ class CallOverlayService: Service() {
                 .filter { it != null }
                 .collect { callerInfo ->
 
-                overlayView?.apply {
-                    val nameTextView = findViewById<TextView>(R.id.tvName)
-                    nameTextView.text = callerInfo?.name
-
-                    val numberTextView = findViewById<TextView>(R.id.tvNumber)
-                    numberTextView.text = callerInfo?.number
-
-                    val progressBar = findViewById<ProgressBar>(R.id.progressBar)
-
-                    progressBar.isVisible = false
-                    nameTextView.isVisible = true
-                    numberTextView.isVisible = true
-                }
             }
+        }
+    }
+
+    private fun updateOverlay(callerInfo: CallerInfo) {
+        overlayView?.apply {
+            val nameTextView = findViewById<TextView>(R.id.tvName)
+            nameTextView.text = callerInfo.name
+
+            val numberTextView = findViewById<TextView>(R.id.tvNumber)
+            numberTextView.text = callerInfo.number
+
+            val progressBar = findViewById<ProgressBar>(R.id.progressBar)
+
+            progressBar.isVisible = false
+            nameTextView.isVisible = true
+            numberTextView.isVisible = true
         }
     }
 

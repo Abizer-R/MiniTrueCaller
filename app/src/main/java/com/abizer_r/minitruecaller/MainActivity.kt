@@ -45,9 +45,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.abizer_r.minitruecaller.data.repository.CallerRepositoryImpl
+import com.abizer_r.minitruecaller.data.repository.ResultData
+import com.abizer_r.minitruecaller.domain.model.CallerInfo
+import com.abizer_r.minitruecaller.domain.usecase.SaveCallerInfoUseCase
+import com.abizer_r.minitruecaller.ui.addCaller.AddCallerBottomSheet
 import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import com.abizer_r.minitruecaller.utils.CallPermissionsState
 import com.abizer_r.minitruecaller.utils.PermissionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,13 +106,45 @@ fun MainScreen(
         launchRuntimePermissionsRequest = launcher
     }
 
+    var showBottomSheet by remember { mutableStateOf(false) }
+
     PermissionsPanel(
         modifier = Modifier.fillMaxSize(),
         permissionState = callPermissionsState,
         context = context,
         onRequestRuntimePermissions = launchRuntimePermissionsRequest,
+        onShowBottomSheet = {
+            showBottomSheet = true
+        },
         onRequestCallerIdRole = callerIdRoleLauncher
     )
+
+    if (showBottomSheet) {
+        AddCallerBottomSheet(
+            onDismiss = { showBottomSheet = false },
+            onSubmit = { number, name ->
+                // Replace this with ViewModel use case call
+                val callerInfo = CallerInfo(number, name)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val result =
+                        SaveCallerInfoUseCase(CallerRepositoryImpl(context)).invoke(callerInfo)
+
+                    when (result) {
+                        is ResultData.Failed -> Toast.makeText(
+                            context, result.errorMessage(),
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        is ResultData.Loading -> {}
+                        is ResultData.Success -> Toast.makeText(
+                            context, "Updated Successfully",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+        )
+    }
 
 }
 
@@ -114,6 +154,7 @@ fun PermissionsPanel(
     permissionState: CallPermissionsState,
     context: Context,
     onRequestRuntimePermissions: () -> Unit,
+    onShowBottomSheet: () -> Unit,
     onRequestCallerIdRole: ManagedActivityResultLauncher<Intent, ActivityResult>
 ) {
     Column(
@@ -142,6 +183,11 @@ fun PermissionsPanel(
             context = context,
             onRequestCallerIdRole = onRequestCallerIdRole
         )
+        Spacer(Modifier.height(16.dp))
+
+        Button(onClick = onShowBottomSheet) {
+            Text("Add Caller to Firebase")
+        }
     }
 }
 
