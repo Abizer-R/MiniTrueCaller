@@ -35,10 +35,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import androidx.core.net.toUri
+import androidx.lifecycle.lifecycleScope
 import com.abizer_r.minitruecaller.ui.overlay.CallOverlayService
 import com.abizer_r.minitruecaller.utils.CallPermissionsState
 import com.abizer_r.minitruecaller.utils.Constants
 import com.abizer_r.minitruecaller.utils.PermissionHandler
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,13 +58,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        dummyIncomingCall()
+    }
 
-        val intent = Intent(this, CallOverlayService::class.java)
-        intent.putExtra(Constants.INCOMING_CALL_EXTRA, "9999999999")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+    private fun dummyIncomingCall() {
+        lifecycleScope.launch {
+            delay(3000)
+
+            val intent = Intent(this@MainActivity, CallOverlayService::class.java)
+            intent.putExtra(Constants.INCOMING_CALL_EXTRA, "9999999999")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
         }
     }
 }

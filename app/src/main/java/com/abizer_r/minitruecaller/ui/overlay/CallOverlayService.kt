@@ -82,8 +82,8 @@ class CallOverlayService: Service() {
     }
 
     private fun showOverlay() {
-
-        val inflater = getSystemService(LAYOUT_INFLATER_SERVICE) as LayoutInflater
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        val inflater = LayoutInflater.from(this)
         overlayView = inflater.inflate(R.layout.overlay_caller_info, null)
 
         val params = WindowManager.LayoutParams(
@@ -102,18 +102,18 @@ class CallOverlayService: Service() {
         params.gravity = Gravity.CENTER
         params.y = 100
 
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        overlayView!!.setOnClickListener {
+            Log.d("Overlay", "Overlay clicked, dismissing")
+            removeOverlay()
+            stopSelf()
+        }
+
         Log.d("Overlay", "Adding view to window manager")
         windowManager.addView(overlayView, params)
 
         // fade in animation
         overlayView?.alpha = 0f
         overlayView?.animate()?.alpha(1f)?.setDuration(300)?.start()
-
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            stopSelf()
-        }, 5000)
 
     }
 
@@ -137,12 +137,17 @@ class CallOverlayService: Service() {
             .build()
     }
 
-
-    override fun onDestroy() {
-        overlayView?.let {
-            windowManager.removeView(it)
+    private fun removeOverlay() {
+        if (::windowManager.isInitialized && overlayView != null) {
+            windowManager.removeView(overlayView)
             overlayView = null
         }
+    }
+
+
+
+    override fun onDestroy() {
+        removeOverlay()
         super.onDestroy()
     }
 
