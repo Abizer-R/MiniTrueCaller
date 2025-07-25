@@ -26,8 +26,8 @@ class MyCallScreeningService : CallScreeningService() {
         respondToCall(details, CallResponse.Builder().build())
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        Log.d("MyCallScreeningService", "onBind called")
-        return super.onBind(intent)
-    }
+//    override fun onBind(intent: Intent?): IBinder? {
+//        Log.d("MyCallScreeningService", "onBind called")
+//        return super.onBind(intent)
+//    }
 }

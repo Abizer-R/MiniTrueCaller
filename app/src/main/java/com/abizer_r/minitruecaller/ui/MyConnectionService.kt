@@ -15,12 +15,14 @@ class MyConnectionService : ConnectionService() {
         connectionManagerPhoneAccount: PhoneAccountHandle,
         request: ConnectionRequest
     ): Connection {
+        Log.d("MyConnectionService", "Outgoing request for: ${request.address}")
+
         val connection = object : Connection() {
             init {
                 setAddress(request.address, TelecomManager.PRESENTATION_ALLOWED)
                 setConnectionCapabilities(Connection.CAPABILITY_SUPPORT_HOLD)
                 setAudioModeIsVoip(true)
-                setActive()
+                setDialing() // 👈 NEW! Show call as dialing
             }
 
             override fun onDisconnect() {
@@ -29,15 +31,12 @@ class MyConnectionService : ConnectionService() {
             }
         }
 
-        // This tells Telecom to show your InCallService screen
         connection.setInitializing()
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
-//            connection.setConnectionProperties(Connection.PROPERTY_SELF_MANAGED)
-//        }
-        connection.setInitialized()
+        connection.setInitialized() // 👈 Must call to complete connection lifecycle
 
         return connection
     }
+
 
 
     override fun onCreateIncomingConnection(

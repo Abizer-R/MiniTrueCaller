@@ -1,6 +1,7 @@
 package com.abizer_r.minitruecaller
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
     import android.app.role.RoleManager
@@ -21,6 +22,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
@@ -64,7 +66,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        registerMiniTrueCallerPhoneAccount(this@MainActivity)
+        handleReadPhoneStatePermission()
+//        registerMiniTrueCallerPhoneAccount(this@MainActivity)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val roleManager = getSystemService(RoleManager::class.java)
@@ -114,22 +117,47 @@ class MainActivity : ComponentActivity() {
 
     }
 
+
+    private lateinit var readPhoneStateLauncher: ActivityResultLauncher<String>
+
+
+    private fun handleReadPhoneStatePermission() {
+        readPhoneStateLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                Log.d("Permission", "READ_PHONE_STATE granted")
+                registerMiniTrueCallerPhoneAccount(this@MainActivity)
+            } else {
+                Toast.makeText(this, "Permission denied 😢", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        readPhoneStateLauncher.launch(Manifest.permission.READ_PHONE_STATE)
+    }
+
+    @SuppressLint("MissingPermission")
     fun registerMiniTrueCallerPhoneAccount(context: Context) {
         val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
 
         val componentName = ComponentName(context, MyConnectionService::class.java)
-        val phoneAccountHandle = PhoneAccountHandle(componentName, "mini_truecaller_id")
+        val phoneAccountHandle = PhoneAccountHandle(componentName, "Mini TrueCaller")
 
         val phoneAccount = PhoneAccount.builder(phoneAccountHandle, "Mini TrueCaller")
             .setCapabilities(
-                PhoneAccount.CAPABILITY_CALL_PROVIDER or
-                        PhoneAccount.CAPABILITY_CONNECTION_MANAGER
+                PhoneAccount.CAPABILITY_CALL_PROVIDER
+//                        or PhoneAccount.CAPABILITY_CONNECTION_MANAGER
             )
             .setHighlightColor(context.getColor(R.color.purple_500)) // Optional
             .build()
 
         telecomManager.registerPhoneAccount(phoneAccount)
 //        telecomManager.addNewIncomingCall(phoneAccountHandle, Bundle())
+
+        if (!telecomManager.callCapablePhoneAccounts.contains(phoneAccountHandle)) {
+            context.startActivity(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS))
+            Toast.makeText(context, "Enable MiniDialer in call settings", Toast.LENGTH_LONG).show()
+        }
 
         Log.d("PhoneAccount", "Registered with: ${phoneAccountHandle.componentName.className}")
     }
@@ -150,17 +178,6 @@ fun MainScreen(
         mutableStateOf({})
     }
 
-    val requestCallerIdRole = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (isDefaultCallerIdApp(context)) {
-            Toast.makeText(context, "Caller ID role granted!", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(context, "Caller ID role not granted.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         // After user chooses, check if we're default dialer now
         if (isDefaultDialer(context)) {
@@ -174,6 +191,7 @@ fun MainScreen(
         requiredPermissions = listOf(
             Manifest.permission.READ_CALL_LOG,
             Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.CALL_PHONE,
         )
     ) { state, launcher ->
         permissionState = state
@@ -231,15 +249,6 @@ fun MainScreen(
 
         // Default dialer
         Button(onClick = {
-//            val intent = requestCallerIdRole(context)
-//            if (intent != null) {
-//                requestCallerIdRole.launch(intent)
-//            } else {
-//                Toast.makeText(context, "Caller ID role not available", Toast.LENGTH_SHORT).show()
-//            }
-
-
-
             if (!isDefaultDialer(context)) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     val roleManager = context.getSystemService(Context.ROLE_SERVICE) as RoleManager
@@ -267,22 +276,6 @@ fun MainScreen(
             Text(if (isDefaultDialer(context)) "Already default dialer" else "Make default dialer")
         }
 
-
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Default Caller ID
-        Button(onClick = {
-            val intent = requestCallerIdRole(context)
-            if (intent != null) {
-                requestCallerIdRole.launch(intent)
-            } else {
-                Toast.makeText(context, "Caller ID role not available", Toast.LENGTH_SHORT).show()
-            }
-        }) {
-            Text(if (isDefaultCallerIdApp(context)) "Already default Caller ID app" else "Make default Caller ID app")
-        }
-
         Spacer(modifier = Modifier.height(16.dp))
 
         // BATTERY OPTIMIZATION
@@ -293,30 +286,30 @@ fun MainScreen(
             Text("Allow battery unrestricted access")
         }
 
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        // 🔐 AUTO-START INSTRUCTIONS (for MIUI/Vivo etc.)
-//        Button(onClick = {
-//            showAutoStartInstructions(context)
-//        }) {
-//            Text("Instructions for battery restrictions")
-//        }
-
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(onClick = {
-            context.startActivity(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS))
+            context.startActivity(Intent(context, DialerActivity::class.java))
         }) {
-            Text("Change Phone account")
+            Text("DIal pad ui")
         }
+
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+//        Button(onClick = {
+//            context.startActivity(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS))
+//        }) {
+//            Text("Change Phone account")
+//        }
 
 
         Button(onClick = {
             val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
 
             val componentName = ComponentName(context, MyConnectionService::class.java)
-            val phoneAccountHandle = PhoneAccountHandle(componentName, "mini_truecaller_id")
+            val phoneAccountHandle = PhoneAccountHandle(componentName, "Mini TrueCaller")
             if (ActivityCompat.checkSelfPermission(
                     context,
                     Manifest.permission.CALL_PHONE
@@ -338,49 +331,9 @@ fun MainScreen(
 }
 
 
-fun isDefaultCallerIdApp(context: Context): Boolean {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
-        return false
-    val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
-    return roleManager?.isRoleHeld(RoleManager.ROLE_CALL_SCREENING) == true
-}
-
-fun requestCallerIdRole(context: Context): Intent? {
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
-        if (roleManager?.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) == true) {
-            roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
-        } else null
-    } else null
-}
-
-
-
-
-
-
-
-
-
-
-
 fun isDefaultDialer(context: Context): Boolean {
     val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
     return telecomManager.defaultDialerPackage == context.packageName
-}
-
-fun showAutoStartInstructions(context: Context) {
-    AlertDialog.Builder(context)
-        .setTitle("Enable Auto-start")
-        .setMessage(
-            "For apps like this to work reliably on Xiaomi, Vivo, Oppo, or Realme phones, please:\n\n" +
-                    "1. Go to Settings > Apps > Your App\n" +
-                    "2. Enable 'Auto-start' or 'Run in background'\n" +
-                    "3. Disable battery optimization for this app\n\n" +
-                    "This helps the app show caller info even when killed."
-        )
-        .setPositiveButton("Got it") { dialog, _ -> dialog.dismiss() }
-        .show()
 }
 
 

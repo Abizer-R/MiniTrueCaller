@@ -21,37 +21,54 @@ import kotlinx.coroutines.withContext
 
 class CallReceiver : BroadcastReceiver() {
 
+    companion object {
+        var isHandled = false
+    }
+
     override fun onReceive(context: Context?, intent: Intent?) {
         val state = intent?.getStringExtra(TelephonyManager.EXTRA_STATE)
         Log.d("CallReceiver", "onReceive called - state = $state, app alive = ${isAppAlive(context)}")
 
         if (state == TelephonyManager.EXTRA_STATE_RINGING) {
-            Log.d("CallReceiver", "Call is ringing")
-
             val number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
 
-            if (number != null) {
+            if (!number.isNullOrBlank()) {
+                if (isHandled) {
+                    Log.d("CallReceiver", "Already handled, skipping incoming number")
+                    return
+                }
                 Log.d("CallReceiver", "Incoming number: $number")
+                isHandled = true
                 startOverlayService(context, number)
             } else {
-                Log.d("CallReceiver", "Went into workaround block")
-                // Android 10+ workaround: query call log
-                CoroutineScope(Dispatchers.IO).launch {
-                    delay(2000)
-                    val number = getLastIncomingNumber(context)
-                    Log.d("CallReceiver", "Workaround block number: $number")
-                    if (!number.isNullOrBlank()) {
-                        withContext(Dispatchers.Main) {
-                            startOverlayService(context, number)
+                // Launch workaround only if not already handled
+                if (!isHandled) {
+                    Log.d("CallReceiver", "Went into workaround block")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        delay(2000)
+                        val fallbackNumber = getLastIncomingNumber(context)
+                        Log.d("CallReceiver", "Workaround block number: $fallbackNumber")
+
+                        if (!fallbackNumber.isNullOrBlank()) {
+                            withContext(Dispatchers.Main) {
+                                if (!isHandled) {
+                                    isHandled = true
+                                    startOverlayService(context, fallbackNumber)
+                                } else {
+                                    Log.d("CallReceiver", "Workaround ignored due to already handled")
+                                }
+                            }
                         }
-                    } else {
-                        Log.w("CallReceiver", "Failed to fetch incoming number from CallLog.")
-                        startOverlayService(context, "00000")
                     }
                 }
             }
+        } else if (state == TelephonyManager.EXTRA_STATE_IDLE) {
+            // Reset state for future calls
+            isHandled = false
+            Log.d("CallReceiver", "Call ended. Resetting state.")
         }
     }
+
 
     private fun startOverlayService(context: Context?, number: String) {
         val serviceIntent = Intent(context, CallOverlayService::class.java).apply {

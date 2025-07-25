@@ -38,40 +38,42 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <intent-filter>
-                <action android:name="android.intent.action.DIAL" />
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="tel" />
-            </intent-filter>
+            <!-- Needed to tell Android we handle call intents -->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.DIAL" />-->
+<!--                <action android:name="android.intent.action.CALL" />-->
+<!--                <category android:name="android.intent.category.DEFAULT" />-->
+<!--                <data android:scheme="tel" />-->
+<!--            </intent-filter>-->
+        </activity>
 
+        <activity android:name=".ui.DialerActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.CALL" />
-                <action android:name="android.intent.action.CALL_BUTTON" />
+                <action android:name="android.intent.action.DIAL" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="tel" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PICK_PHONE_ACCOUNT"/>
+                <action android:name="android.telecom.action.SHOW_CALL_ACCESSIBILITY_PANEL"/>
             </intent-filter>
         </activity>
 
-        <activity android:name=".ui.DialerActivity" />
-
-
-        <!--        <receiver-->
-<!--            android:name=".ui.receiver.CallReceiver"-->
-<!--            android:exported="false">-->
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.PHONE_STATE" />-->
-<!--            </intent-filter>-->
-<!--        </receiver>-->
+        <!-- InCallService -->
 
         <service
-            android:name=".ui.overlay.CallOverlayService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync"
-            />
+            android:name=".ui.MyInCallService"
+            android:permission="android.permission.BIND_INCALL_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.InCallService" />
+            </intent-filter>
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_UI" android:value="true" />
+            <meta-data android:name="android.telecom.IN_CALL_SERVICE_RINGING" android:value="true" />
+        </service>
 
-        <!-- Required for default dialer functionality -->
         <service
             android:name=".ui.MyCallScreeningService"
             android:permission="android.permission.BIND_SCREENING_SERVICE"
@@ -80,6 +82,7 @@
                 <action android:name="android.telecom.CallScreeningService" />
             </intent-filter>
         </service>
+
 
         <service
             android:name=".ui.MyConnectionService"
@@ -90,20 +93,26 @@
             </intent-filter>
         </service>
 
-        <service
-            android:name=".ui.MyInCallService"
-            android:permission="android.permission.BIND_INCALL_SERVICE"
-            android:exported="true">
-            <meta-data
-                android:name="android.telecom.IN_CALL_SERVICE_UI"
-                android:value="true" />
-            <meta-data
-                android:name="android.telecom.IN_CALL_SERVICE_RINGING"
-                android:value="true" />
+
+
+
+
+
+
+                <receiver
+            android:name=".ui.receiver.CallReceiver"
+            android:exported="false">
             <intent-filter>
-                <action android:name="android.telecom.InCallService" />
+                <action android:name="android.intent.action.PHONE_STATE" />
             </intent-filter>
-        </service>
+        </receiver>
+
+        <service
+            android:name=".ui.overlay.CallOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+            />
+
 
 
     </application>
