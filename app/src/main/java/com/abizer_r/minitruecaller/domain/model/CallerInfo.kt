@@ -1,3 +1,9 @@
 package com.abizer_r.minitruecaller.domain.model
 
-data class CallerInfo(val number: String, val name: String)
+import androidx.annotation.Keep
+
+@Keep
+data class CallerInfo(
+    val number: String = "",
+    val name: String = ""
+)

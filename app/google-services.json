@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "921031887175",
+    "project_id": "minitruecaller",
+    "storage_bucket": "minitruecaller.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:921031887175:android:f3b30cfc31719c91796462",
+        "android_client_info": {
+          "package_name": "com.abizer_r.minitruecaller"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZLzmHQBBEPj7mwFQLneNqMBgqxa50Dzs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
