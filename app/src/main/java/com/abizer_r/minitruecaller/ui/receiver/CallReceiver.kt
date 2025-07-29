@@ -35,7 +35,7 @@ class CallReceiver : BroadcastReceiver() {
         Log.d("CallReceiver", "onReceive called - state = $state, app alive = ${isAppAlive(context)}")
 
         if (state == TelephonyManager.EXTRA_STATE_RINGING) {
-            val number = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
+            val number = intent?.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
 
             if (!number.isNullOrBlank()) {
                 if (isHandled) {

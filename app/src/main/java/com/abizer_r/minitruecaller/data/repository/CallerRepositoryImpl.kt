@@ -32,12 +32,9 @@ sealed class ResultData<out T> {
     }
 }
 
-class CallerRepositoryImpl(
-    private val context: Context
-) : CallerRepository {
+class CallerRepositoryImpl() : CallerRepository {
 
-    private val firestore get() = FirebaseUtils.getFirestore(context)
-    private val callerCollection = firestore.collection("caller_ids")
+    private val firestore get() = FirebaseUtils.getFirestore()
 
     @OptIn(InternalCoroutinesApi::class)
     override suspend fun getCallerInfo(number: String): ResultData<CallerInfo> {
@@ -58,32 +55,17 @@ class CallerRepositoryImpl(
 
 
     @OptIn(InternalCoroutinesApi::class)
-    override suspend fun saveCallerInfo(callerInfo: CallerInfo): ResultData<CallerInfo> =
-        suspendCancellableCoroutine { cont ->
-
+    override suspend fun saveCallerInfo(callerInfo: CallerInfo): ResultData<CallerInfo> {
+        return try {
             firestore
                 .collection("callers")
                 .document(callerInfo.number) // Use number as ID for quick lookup
                 .set(callerInfo)
-                .addOnSuccessListener {
-                    cont.tryResume(ResultData.Success(callerInfo))
-                }
-                .addOnFailureListener { e ->
-                    cont.tryResume(ResultData.Failed(e))
-                }
+                .await()
+            ResultData.Success(callerInfo)
+        } catch (e: Exception) {
+            ResultData.Failed(exception = e)
         }
+    }
 
-
-//    override suspend fun saveCallerInfo(info: CallerInfo) {
-//        withContext(Dispatchers.IO) {
-//            val data = mapOf(
-//                "name" to info.name,
-//            )
-//            try {
-//                callerCollection.document(info.number).set(data).await()
-//            } catch (e: Exception) {
-//                Log.e("Repo", "Error saving caller info: ${e.message}")
-//            }
-//        }
-//    }
 }

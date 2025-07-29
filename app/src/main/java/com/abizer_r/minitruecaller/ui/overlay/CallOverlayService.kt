@@ -32,15 +32,22 @@ import com.abizer_r.minitruecaller.data.repository.ResultData
 import com.abizer_r.minitruecaller.domain.model.CallerInfo
 import com.abizer_r.minitruecaller.domain.usecase.GetCallerInfoUseCase
 import com.abizer_r.minitruecaller.utils.Constants
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class CallOverlayService: Service() {
+
+    @Inject lateinit var getCallerInfoUseCase: GetCallerInfoUseCase
 
     private lateinit var windowManager: WindowManager
     private var overlayView: View? = null
@@ -59,30 +66,19 @@ class CallOverlayService: Service() {
 
     private fun fetchCallerInfo(number: String) {
         CoroutineScope(Dispatchers.IO).launch {
-            val useCase = GetCallerInfoUseCase(CallerRepositoryImpl(this@CallOverlayService))
-            val result = useCase(number)
-
-            withContext(Dispatchers.Main) {
-
-
-                when (result) {
-                    is ResultData.Failed -> {
-                        updateOverlay(CallerInfo(number, "Unknown"))
-                    }
-                    is ResultData.Loading -> {}
-                    is ResultData.Success -> {
-                        updateOverlay(result.data)
+            getCallerInfoUseCase.invoke(number).onEach { result ->
+                withContext(Dispatchers.Main) {
+                    when (result) {
+                        is ResultData.Failed -> {
+                            updateOverlay(CallerInfo(number, "Unknown"))
+                        }
+                        is ResultData.Loading -> {}
+                        is ResultData.Success -> {
+                            updateOverlay(result.data)
+                        }
                     }
                 }
-
-            }
-
-
-//            val name = DummyNumbersMapRepo.fetchNameForNumber(number)
-//            callerInfoFlow.value = CallerInfo(
-//                number = number,
-//                name = name ?: "unknown"
-//            )
+            }.collect()
         }
 
         CoroutineScope(Dispatchers.Main).launch {

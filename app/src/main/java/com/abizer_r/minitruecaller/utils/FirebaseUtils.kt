@@ -6,12 +6,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 
 object FirebaseUtils {
-    fun getFirestore(context: Context): FirebaseFirestore {
-//        if (FirebaseApp.getApps(context).isEmpty()) {
-//            FirebaseApp.initializeApp(context)
-//        }
-//        return FirebaseFirestore.getInstance()
+    fun getFirestore(): FirebaseFirestore {
         return Firebase.firestore
-
     }
 }
