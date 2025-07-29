@@ -5,4 +5,7 @@
     <string name="make_app_default_dialer">Make App Default Dialer</string>
     <string name="phone_permissions_granted">Phone Permissions Granted</string>
     <string name="grant_phone_permissions">Grant Phone Permissions</string>
+    <string name="updated_successfully">Updated Successfully</string>
+    <string name="saving">Saving...</string>
+    <string name="please_wait_while_we_save_caller_info">Please wait while we save the caller info.</string>
 </resources>

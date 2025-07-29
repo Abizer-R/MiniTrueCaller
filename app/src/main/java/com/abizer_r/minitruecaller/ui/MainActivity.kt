@@ -1,4 +1,4 @@
-package com.abizer_r.minitruecaller
+package com.abizer_r.minitruecaller.ui
 
 import android.Manifest
 import android.app.role.RoleManager
@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -46,19 +47,24 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.abizer_r.minitruecaller.R
 import com.abizer_r.minitruecaller.data.repository.CallerRepositoryImpl
 import com.abizer_r.minitruecaller.data.repository.ResultData
 import com.abizer_r.minitruecaller.domain.model.CallerInfo
 import com.abizer_r.minitruecaller.domain.usecase.SaveCallerInfoUseCase
-import com.abizer_r.minitruecaller.ui.addCaller.AddCallerBottomSheet
 import com.abizer_r.minitruecaller.ui.addCaller.AddCallerSheetLauncher
 import com.abizer_r.minitruecaller.ui.theme.MiniTrueCallerTheme
 import com.abizer_r.minitruecaller.utils.CallPermissionsState
 import com.abizer_r.minitruecaller.utils.PermissionHandler
+import com.abizer_r.minitruecaller.utils.toast
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -78,9 +84,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     modifier: Modifier = Modifier,
+    viewModel: CallerViewModel = hiltViewModel()
 ) {
 
     val context = LocalContext.current
+    val saveCallerInfoState by viewModel.callerInfo.collectAsStateWithLifecycle()
     var callPermissionsState by remember {
         mutableStateOf(CallPermissionsState())
     }
@@ -125,27 +133,39 @@ fun MainScreen(
         showSheet = showBottomSheet,
         onDismiss = { showBottomSheet = false },
         onSubmit = { number, name ->
-            // Replace this with ViewModel use case call
             val callerInfo = CallerInfo(number, name)
-            CoroutineScope(Dispatchers.IO).launch {
-                val result =
-                    SaveCallerInfoUseCase(CallerRepositoryImpl(context)).invoke(callerInfo)
-
-                when (result) {
-                    is ResultData.Failed -> Toast.makeText(
-                        context, result.errorMessage(),
-                        Toast.LENGTH_SHORT
-                    ).show()
-
-                    is ResultData.Loading -> {}
-                    is ResultData.Success -> Toast.makeText(
-                        context, "Updated Successfully",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
+            viewModel.saveCallerInfo(callerInfo)
         }
     )
+
+    var showProgressDialog by remember { mutableStateOf(false) }
+
+    when (saveCallerInfoState) {
+        is ResultData.Failed -> {
+            showProgressDialog = false
+            toast(saveCallerInfoState?.errorMessage())
+        }
+        is ResultData.Loading -> {
+            showProgressDialog = true
+        }
+        is ResultData.Success -> {
+            showProgressDialog = false
+            toast(R.string.updated_successfully)
+        }
+        else -> {
+            showProgressDialog = false
+        }
+    }
+
+    if (showProgressDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text(stringResource(R.string.saving)) },
+            text = { Text(stringResource(R.string.please_wait_while_we_save_caller_info)) },
+            confirmButton = {},
+            dismissButton = {}
+        )
+    }
 
 }
 
@@ -206,6 +226,9 @@ private fun CallerIdRoleSection(
     context: Context,
     onRequestCallerIdRole: ManagedActivityResultLauncher<Intent, ActivityResult>,
 ) {
+    if (isCallerIdRoleAvailable(context).not()) {
+        return
+    }
     if (isCallerIdRoleHeld) {
         Row(
             Modifier.fillMaxWidth(),
@@ -303,6 +326,13 @@ private fun CallPermissionsSection(
     }
 }
 
+
+fun isCallerIdRoleAvailable(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+        return false
+    val roleManager = context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+    return roleManager?.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) == true
+}
 
 fun isCallerIdRoleHeld(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
